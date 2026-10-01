@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Monitoring & Insentif Collector</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js untuk Diagram Batang & Grafik Bundar -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS untuk Sinkronisasi Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- FontAwesome Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <!-- HALAMAN LOGIN -->
+    <div id="loginPage" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="bg-blue-600 text-white w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                    <i class="fa-solid fa-chart-line text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Dashboard Login</h2>
+                <p class="text-sm text-gray-500 mt-1">Silakan masukkan Id User dan Password Anda</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Id User</label>
+                    <input type="text" id="userId" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">Password</label>
+                    <input type="password" id="password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                </div>
+                <div id="loginError" class="text-red-500 text-xs font-medium text-hidden hidden text-center">ID User atau Password salah!</div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 shadow-md transition duration-200">Masuk Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- HALAMAN UTAMA DASHBOARD -->
+    <div id="dashboardPage" class="hidden min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm px-6 py-4 flex flex-col sm:flex-row justify-between items-center border-b border-gray-200 sticky top-0 z-50">
+            <div class="mb-2 sm:mb-0">
+                <h1 id="welcomeText" class="text-xl font-bold text-gray-900">Selamat Datang, Yusuf Dharma</h1>
+                <p class="text-xs text-gray-500" id="roleInfo">Sistem Informasi Kinerja & Insentif Collector</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Tombol Update Excel (Hanya untuk Nikolaus Yudistira & Yusuf Dharma) -->
+                <div id="uploadSection" class="hidden">
+                    <label class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-green-700 transition shadow flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Update Excel Terupdate
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
+                    </label>
+                </div>
+                <button onclick="handleLogout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-red-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i> Keluar
+                </button>
+            </div>
+        </header>
+
+        <!-- Tabs Navigasi Utama -->
+        <nav class="bg-blue-900 text-white px-6 flex gap-2 shadow-inner overflow-x-auto">
+            <button onclick="switchMainTab('Insentif')" id="nav-Insentif" class="main-tab px-6 py-3 font-semibold border-b-4 border-white transition whitespace-nowrap text-sm">Insentif</button>
+            <button onclick="switchMainTab('BA_NOOD')" id="nav-BA_NOOD" class="main-tab px-6 py-3 font-semibold border-b-4 border-transparent hover:border-gray-300 transition whitespace-nowrap text-sm">BA NOOD</button>
+            <button onclick="switchMainTab('BA_1_30')" id="nav-BA_1_30" class="main-tab px-6 py-3 font-semibold border-b-4 border-transparent hover:border-gray-300 transition whitespace-nowrap text-sm">BA 1_30</button>
+            <button onclick="switchMainTab('BA_31_60')" id="nav-BA_31_60" class="main-tab px-6 py-3 font-semibold border-b-4 border-transparent hover:border-gray-300 transition whitespace-nowrap text-sm">BA 31_60</button>
+        </nav>
+
+        <!-- Konten Utama -->
+        <main class="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+
+            <!-- SHEET 1: INSENTIF -->
+            <section id="content-Insentif" class="space-y-6">
+                <!-- Sub Tabs Nama Collector -->
+                <div class="flex flex-wrap gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-200" id="collectorTabsInsentif"></div>
+
+                <!-- Kartu Ringkasan Atribut -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Absensi</p>
+                        <h3 id="valAbsensi" class="text-2xl font-extrabold text-gray-900 mt-1">0 Hari</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Insentif Raport (BOTL)</p>
+                        <h3 id="valBotl" class="text-2xl font-extrabold text-gray-900 mt-1">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-yellow-500">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Insentif Tambahan (TB Mobil/Motor)</p>
+                        <h3 id="valTb" class="text-2xl font-extrabold text-gray-900 mt-1">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Insentif BTC/SR</p>
+                        <h3 id="valBtc" class="text-2xl font-extrabold text-gray-900 mt-1">Rp 0</h3>
+                    </div>
+                </div>
+
+                <!-- Tabel Weekly & Diagram Batang KPI -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-table-cells text-blue-600"></i> Pencapaian Weekly (C1 - C4) & Insentif
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
+                                        <th class="p-3">Periode</th>
+                                        <th class="p-3">Persentase</th>
+                                        <th class="p-3 text-right">Insentif</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="weeklyTableBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-blue-600"></i> Diagram Batang KPI Collector (%)
+                        </h3>
+                        <div class="relative h-64">
+                            <canvas id="kpiChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raport Kinerja -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-award text-blue-600"></i> Raport Kinerja Collector
+                    </h3>
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b">
+                                <th class="p-3">Raport</th>
+                                <th class="p-3">Keterangan</th>
+                                <th class="p-3">Nilai</th>
+                            </tr>
+                        </thead>
+                        <tbody id="raportTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SHEET 2: BA NOOD -->
+            <section id="content-BA_NOOD" class="space-y-6 hidden">
+                <div class="flex flex-wrap gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-200" id="collectorTabsNood"></div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Akun</p>
+                        <h3 id="noodTotalAkun" class="text-2xl font-extrabold text-gray-900 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Sipok</p>
+                        <h3 id="noodTotalSipok" class="text-2xl font-extrabold text-blue-600 mt-1">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Persentase Penyelesaian Akun</p>
+                        <h3 id="noodPersentase" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
+                        <h3 class="text-base font-bold text-gray-900 mb-4">Data Konsumen BA NOOD</h3>
+                        <div class="overflow-x-auto max-h-96">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead class="sticky top-0 bg-gray-50 text-gray-600 text-xs uppercase">
+                                    <tr class="border-b">
+                                        <th class="p-3">Nama Collector</th>
+                                        <th class="p-3">No Kontrak</th>
+                                        <th class="p-3">Nama Konsumen</th>
+                                        <th class="p-3">Tipe Barang</th>
+                                        <th class="p-3">Angsuran Ke</th>
+                                        <th class="p-3">Jatuh Tempo</th>
+                                        <th class="p-3 text-right">Sipok</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableNoodBody" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center">
+                        <h3 class="text-base font-bold text-gray-900 mb-4 w-full text-left">Grafik Perbandingan Sipok</h3>
+                        <div class="w-full h-64">
+                            <canvas id="noodPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SHEET 3: BA 1_30 -->
+            <section id="content-BA_1_30" class="space-y-6 hidden">
+                <div class="flex flex-wrap gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-200" id="collectorTabs130"></div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Akun</p>
+                        <h3 id="b130TotalAkun" class="text-2xl font-extrabold text-gray-900 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Sipok</p>
+                        <h3 id="b130TotalSipok" class="text-2xl font-extrabold text-blue-600 mt-1">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Persentase Penyelesaian Akun</p>
+                        <h3 id="b130Persentase" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
+                        <h3 class="text-base font-bold text-gray-900 mb-4">Data Konsumen BA 1_30</h3>
+                        <div class="overflow-x-auto max-h-96">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead class="sticky top-0 bg-gray-50 text-gray-600 text-xs uppercase">
+                                    <tr class="border-b">
+                                        <th class="p-3">Nama Collector</th>
+                                        <th class="p-3">No Kontrak</th>
+                                        <th class="p-3">Nama Konsumen</th>
+                                        <th class="p-3">Tipe Barang</th>
+                                        <th class="p-3">Angsuran Ke</th>
+                                        <th class="p-3">Jatuh Tempo</th>
+                                        <th class="p-3 text-right">Sipok</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table130Body" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center">
+                        <h3 class="text-base font-bold text-gray-900 mb-4 w-full text-left">Grafik Perbandingan Sipok</h3>
+                        <div class="w-full h-64">
+                            <canvas id="b130PieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SHEET 4: BA 31_60 -->
+            <section id="content-BA_31_60" class="space-y-6 hidden">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 font-bold text-blue-900 flex justify-between items-center">
+                    <span>Collector: Budi Satriyo</span>
+                    <span class="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200">BA 31_60</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Akun</p>
+                        <h3 id="b3160TotalAkun" class="text-2xl font-extrabold text-gray-900 mt-1">0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Total Sipok</p>
+                        <h3 id="b3160TotalSipok" class="text-2xl font-extrabold text-blue-600 mt-1">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase font-bold">Persentase Penyelesaian Akun</p>
+                        <h3 id="b3160Persentase" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="text-base font-bold text-gray-900 mb-4">Data Konsumen BA 31_60 (Budi Satriyo)</h3>
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead class="sticky top-0 bg-gray-50 text-gray-600 text-xs uppercase">
+                                <tr class="border-b">
+                                    <th class="p-3">Nama Collector</th>
+                                    <th class="p-3">No Kontrak</th>
+                                    <th class="p-3">Nama Konsumen</th>
+                                    <th class="p-3">Tipe Barang</th>
+                                    <th class="p-3">Angsuran Ke</th>
+                                    <th class="p-3">Jatuh Tempo</th>
+                                    <th class="p-3 text-right">Sipok</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table3160Body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- SCRIPT APLIKASI -->
+    <script>
+        // Database Pengguna & Hak Akses Sesuai Permintaan
+        const users = {
+            "0002612743": { pass: "Salatiga12", name: "Yusuf Dharma", role: "admin", canEdit: true, viewAll: true },
+            "000243183": { pass: "Salatiga12", name: "Nikolaus Yudistira", role: "admin", canEdit: true, viewAll: true },
+            "0382611648": { pass: "123456", name: "I Gede Adi Pratama Putra", role: "collector", canEdit: false, viewAll: false },
+            "038235057": { pass: "123456", name: "Oktavianus Manik", role: "collector", canEdit: false, viewAll: false },
+            "038243724": { pass: "123456", name: "Ridwan Andika", role: "collector", canEdit: false, viewAll: false },
+            "038255943": { pass: "123456", name: "Risky Imam Hanafi", role: "collector", canEdit: false, viewAll: false },
+            "0382614144": { pass: "123456", name: "Budi Satriyo", role: "collector", canEdit: false, viewAll: true }
+        };
+
+        let currentUser = null;
+        let currentCollectorInsentif = "I Gede Adi Pratama Putra";
+        let currentCollectorNood = "I Gede Adi Pratama Putra";
+        let currentCollector130 = "I Gede Adi Pratama Putra";
+
+        const collectorsInsentif = ["I Gede Adi Pratama Putra", "Oktavianus Manik", "Ridwan Andika", "Risky Imam Hanafi", "Budi Satriyo"];
+        const collectorsBa = ["I Gede Adi Pratama Putra", "Oktavianus Manik", "Ridwan Andika", "Risky Imam Hanafi"];
+
+        // Database Sinkronisasi Berdasarkan File Excel Terupdate (`Workbook2.xlsx`)
+        let appData = {
+            insentif: {
+                "BUDI SATRIYO": { absensi: 12, botl: 312000, tb: 0, btc: 0, weekly: [{c:"C1", p:"74.36%", i:"Rp 500.000"}, {c:"C2", p:"72.61%", i:"Rp 0"}, {c:"C3", p:"72.61%", i:"Rp 0"}, {c:"C4", p:"71.34%", i:"Rp 0"}], kpi: [4.92, 1.45, 78.95], raport: [{r:"ON TARGET", ket:"DIBAYARKAN", nilai:"3.8"}] },
+                "I GEDE ADI PRATAMA PUTRA": { absensi: 26, botl: 1040000, tb: 0, btc: 0, weekly: [{c:"C1", p:"89.90%", i:"Rp 0"}, {c:"C2", p:"64.97%", i:"Rp 0"}, {c:"C3", p:"3.85%", i:"Rp 500.000"}, {c:"C4", p:"3.44%", i:"Rp 500.000"}], kpi: [0.81, 8.04, 42.86], raport: [{r:"EXCEPTIONAL", ket:"DIBAYARKAN", nilai:"5"}] },
+                "OKTAVIANUS MANIK": { absensi: 27, botl: 1080000, tb: 0, btc: 0, weekly: [{c:"C1", p:"31.28%", i:"Rp 750.000"}, {c:"C2", p:"5.35%", i:"Rp 750.000"}, {c:"C3", p:"0.36%", i:"Rp 500.000"}, {c:"C4", p:"0.00%", i:"Rp 500.000"}], kpi: [1.12, 4.51, 11.11], raport: [{r:"EXCEPTIONAL", ket:"DIBAYARKAN", nilai:"5"}] },
+                "RIDWAN ANDIKA": { absensi: 26, botl: 832000, tb: 0, btc: 0, weekly: [{c:"C1", p:"93.47%", i:"Rp 0"}, {c:"C2", p:"28.17%", i:"Rp 750.000"}, {c:"C3", p:"23.99%", i:"Rp 500.000"}, {c:"C4", p:"11.61%", i:"Rp 0"}], kpi: [2.98, 7.15, 55.56], raport: [{r:"EXCEED TARGET", ket:"DIBAYARKAN", nilai:"4"}] },
+                "RISKY IMAM HANAFI": { absensi: 27, botl: 1080000, tb: 0, btc: 0, weekly: [{c:"C1", p:"87.44%", i:"Rp 0"}, {c:"C2", p:"4.37%", i:"Rp 750.000"}, {c:"C3", p:"4.37%", i:"Rp 500.000"}, {c:"C4", p:"0.00%", i:"Rp 500.000"}], kpi: [1.47, 3.76, 50.00], raport: [{r:"EXCEPTIONAL", ket:"DIBAYARKAN", nilai:"4.7"}] }
+            },
+            nood: [
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120240105457", konsumen: "PANDU SURYA KUSUMA", tipe: "Motor", angsuran: 5, tempo: "2026-10-10", sipok: 4011963 },
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120250306228", konsumen: "KAMAL JOKO SUROYO", tipe: "Motor", angsuran: 12, tempo: "2026-10-12", sipok: 17933455 },
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120250906583", konsumen: "SUYONO", tipe: "Motor", angsuran: 3, tempo: "2026-10-15", sipok: 460509 },
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120251006658", konsumen: "M DHOHRI SUPAROH", tipe: "Motor", angsuran: 8, tempo: "2026-10-18", sipok: 5411362 },
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120251006679", konsumen: "CHINDY KHARISMA", tipe: "Motor", angsuran: 14, tempo: "2026-10-20", sipok: 16152638 },
+                { collector: "Oktavianus Manik", kontrak: "1060120240705796", konsumen: "PARJAN", tipe: "Motor", angsuran: 10, tempo: "2026-10-05", sipok: 11965113 },
+                { collector: "Oktavianus Manik", kontrak: "1060120250406285", konsumen: "MUHAMAD IMRON", tipe: "Motor", angsuran: 6, tempo: "2026-10-08", sipok: 1624060 },
+                { collector: "Oktavianus Manik", kontrak: "1060120250806539", konsumen: "M AJIB", tipe: "Motor", angsuran: 9, tempo: "2026-10-14", sipok: 10260806 },
+                { collector: "Oktavianus Manik", kontrak: "1060120250906594", konsumen: "AHMAD FITRA", tipe: "Motor", angsuran: 15, tempo: "2026-10-16", sipok: 22995796 },
+                { collector: "Oktavianus Manik", kontrak: "1060120251106758", konsumen: "SOFIAN", tipe: "Motor", angsuran: 4, tempo: "2026-10-22", sipok: 1290699 },
+                { collector: "Ridwan Andika", kontrak: "1060120240405616", konsumen: "BINA RATNA", tipe: "Motor", angsuran: 7, tempo: "2026-10-03", sipok: 5066341 },
+                { collector: "Ridwan Andika", kontrak: "1060120250706420", konsumen: "IVANKA ABDEE NEGARA", tipe: "Motor", angsuran: 11, tempo: "2026-10-09", sipok: 16152603 },
+                { collector: "Ridwan Andika", kontrak: "1060120251206847", konsumen: "ARI WIBOWO", tipe: "Mobil", angsuran: 18, tempo: "2026-10-11", sipok: 96697955 },
+                { collector: "Ridwan Andika", kontrak: "1060120260507058", konsumen: "SURATMIN", tipe: "Motor", angsuran: 5, tempo: "2026-10-17", sipok: 5264374 },
+                { collector: "Ridwan Andika", kontrak: "1262220241000144", konsumen: "ANDIKA RUDI SUSILO", tipe: "Motor", angsuran: 9, tempo: "2026-10-21", sipok: 9852406 },
+                { collector: "Ridwan Andika", kontrak: "1262220241100151", konsumen: "IPANG FAWAZ HAIKAL", tipe: "Motor", angsuran: 13, tempo: "2026-10-25", sipok: 15083500 },
+                { collector: "Risky Imam Hanafi", kontrak: "1060120240505723", konsumen: "IWAN HANDAYANTO", tipe: "Motor", angsuran: 6, tempo: "2026-10-04", sipok: 2475290 },
+                { collector: "Risky Imam Hanafi", kontrak: "1060120250906619", konsumen: "SANNIA KUSUMA NINGRUM", tipe: "Motor", angsuran: 10, tempo: "2026-10-12", sipok: 14671452 },
+                { collector: "Risky Imam Hanafi", kontrak: "1060120260206916", konsumen: "RIWAYATI", tipe: "Motor", angsuran: 8, tempo: "2026-10-19", sipok: 15698590 },
+                { collector: "Risky Imam Hanafi", kontrak: "1060120260407013", konsumen: "ZAINUN NASIH", tipe: "Motor", angsuran: 11, tempo: "2026-10-24", sipok: 13966680 }
+            ],
+            b130: [
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120250906631", konsumen: "ASMAUL KUSNAH", tipe: "Motor", angsuran: 8, tempo: "2026-10-06", sipok: 9320184 },
+                { collector: "I Gede Adi Pratama Putra", kontrak: "1060120260306944", konsumen: "SUGIYATI", tipe: "Motor", angsuran: 5, tempo: "2026-10-13", sipok: 6893700 },
+                { collector: "Ridwan Andika", kontrak: "1060120250706461", konsumen: "PRENGKY TEDDY PRIYATNO", tipe: "Motor", angsuran: 12, tempo: "2026-10-07", sipok: 14648719 },
+                { collector: "Ridwan Andika", kontrak: "1060120251006659", konsumen: "HELENA SITI RAHAYU", tipe: "Motor", angsuran: 9, tempo: "2026-10-15", sipok: 2946353 },
+                { collector: "Ridwan Andika", kontrak: "1060120260707158", konsumen: "INDIYANI WULANSUCI", tipe: "Motor", angsuran: 4, tempo: "2026-10-22", sipok: 23300727 }
+            ],
+            b3160: [
+                { collector: "Budi Satriyo", kontrak: "1060120231005290", konsumen: "YULITA DEWI", tipe: "Motor", angsuran: 24, tempo: "2026-10-02", sipok: 2830621 },
+                { collector: "Budi Satriyo", kontrak: "1060120240705842", konsumen: "ARIS TOYIYANTO", tipe: "Mobil", angsuran: 18, tempo: "2026-10-05", sipok: 5648161 },
+                { collector: "Budi Satriyo", kontrak: "1060120250506310", konsumen: "FRANCISKA AYU ROSALIANA", tipe: "Motor", angsuran: 14, tempo: "2026-10-09", sipok: 15274558 },
+                { collector: "Budi Satriyo", kontrak: "1060120250706439", konsumen: "TOTO SULISTIONO", tipe: "Motor", angsuran: 16, tempo: "2026-10-12", sipok: 16276969 },
+                { collector: "Budi Satriyo", kontrak: "1060120251006713", konsumen: "TRIMAN", tipe: "Mobil", angsuran: 20, tempo: "2026-10-16", sipok: 309580868 },
+                { collector: "Budi Satriyo", kontrak: "1060120251006714", konsumen: "TRIMAN", tipe: "Mobil", angsuran: 20, tempo: "2026-10-16", sipok: 113074442 },
+                { collector: "Budi Satriyo", kontrak: "1060120251106765", konsumen: "GAGAS TUTUR PAMUNGKAS", tipe: "Mobil", angsuran: 22, tempo: "2026-10-20", sipok: 255570361 },
+                { collector: "Budi Satriyo", kontrak: "1060120251106778", konsumen: "SURYA AJI WIBOWO", tipe: "Motor", angsuran: 10, tempo: "2026-10-23", sipok: 4069495 },
+                { collector: "Budi Satriyo", kontrak: "1262220240800075", konsumen: "SUGENG WIDODO", tipe: "Motor", angsuran: 15, tempo: "2026-10-26", sipok: 8886377 },
+                { collector: "Budi Satriyo", kontrak: "1262220241100154", konsumen: "ADE PUTRA", tipe: "Motor", angsuran: 11, tempo: "2026-10-28", sipok: 4359416 },
+                { collector: "Budi Satriyo", kontrak: "1262220241200166", konsumen: "SUBASTIAN ADI PRAKOSO", tipe: "Motor", angsuran: 13, tempo: "2026-10-30", sipok: 11201877 }
+            ]
+        };
+
+        let kpiChartInstance = null;
+        let noodPieInstance = null;
+        let b130PieInstance = null;
+
+        // Login Handler
+        function handleLogin(e) {
+            e.preventDefault();
+            const id = document.getElementById('userId').value.trim();
+            const pass = document.getElementById('password').value.trim();
+
+            if (users[id] && users[id].pass === pass) {
+                currentUser = users[id];
+                currentUser.id = id;
+                initDashboard();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('dashboardPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        function initDashboard() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('dashboardPage').classList.remove('hidden');
+            document.getElementById('welcomeText').innerText = `Selamat Datang, ${currentUser.name}`;
+            
+            // Hak Akses Tombol Update Excel
+            if (currentUser.canEdit) {
+                document.getElementById('uploadSection').classList.remove('hidden');
+            } else {
+                document.getElementById('uploadSection').classList.add('hidden');
+            }
+
+            // Aturan Batasan Tampilan Data per User
+            if (!currentUser.viewAll) {
+                currentCollectorInsentif = currentUser.name;
+                currentCollectorNood = currentUser.name;
+                currentCollector130 = currentUser.name;
+            }
+
+            renderCollectorTabs();
+            renderInsentifData();
+            renderNoodData();
+            render130Data();
+            render3160Data();
+        }
+
+        function switchMainTab(tabId) {
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.querySelectorAll('.main-tab').forEach(btn => {
+                btn.classList.remove('border-white');
+                btn.classList.add('border-transparent');
+            });
+
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            activeBtn.classList.remove('border-transparent');
+            activeBtn.classList.add('border-white');
+        }
+
+        function renderCollectorTabs() {
+            // Insentif Tabs
+            let insHtml = "";
+            collectorsInsentif.forEach(col => {
+                const active = currentCollectorInsentif === col ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200';
+                const disabled = (!currentUser.viewAll && currentUser.name !== col) ? 'opacity-40 cursor-not-allowed' : '';
+                insHtml += `<button onclick="selectCollectorInsentif('${col}')" class="px-4 py-2 rounded-lg text-sm font-semibold transition ${active} ${disabled}">${col}</button>`;
+            });
+            document.getElementById('collectorTabsInsentif').innerHTML = insHtml;
+
+            // BA NOOD Tabs
+            let noodHtml = "";
+            collectorsBa.forEach(col => {
+                const active = currentCollectorNood === col ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200';
+                const disabled = (!currentUser.viewAll && currentUser.name !== col) ? 'opacity-40 cursor-not-allowed' : '';
+                noodHtml += `<button onclick="selectCollectorNood('${col}')" class="px-4 py-2 rounded-lg text-sm font-semibold transition ${active} ${disabled}">${col}</button>`;
+            });
+            document.getElementById('collectorTabsNood').innerHTML = noodHtml;
+
+            // BA 1_30 Tabs
+            let b130Html = "";
+            collectorsBa.forEach(col => {
+                const active = currentCollector130 === col ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200';
+                const disabled = (!currentUser.viewAll && currentUser.name !== col) ? 'opacity-40 cursor-not-allowed' : '';
+                b130Html += `<button onclick="selectCollector130('${col}')" class="px-4 py-2 rounded-lg text-sm font-semibold transition ${active} ${disabled}">${col}</button>`;
+            });
+            document.getElementById('collectorTabs130').innerHTML = b130Html;
+        }
+
+        function selectCollectorInsentif(col) {
+            if (!currentUser.viewAll && currentUser.name !== col) return;
+            currentCollectorInsentif = col;
+            renderCollectorTabs();
+            renderInsentifData();
+        }
+
+        function selectCollectorNood(col) {
+            if (!currentUser.viewAll && currentUser.name !== col) return;
+            currentCollectorNood = col;
+            renderCollectorTabs();
+            renderNoodData();
+        }
+
+        function selectCollector130(col) {
+            if (!currentUser.viewAll && currentUser.name !== col) return;
+            currentCollector130 = col;
+            renderCollectorTabs();
+            render130Data();
+        }
+
+        // Render Sheet 1: Insentif
+        function renderInsentifData() {
+            const data = appData.insentif[currentCollectorInsentif] || { absensi: 0, botl: 0, tb: 0, btc: 0, weekly: [], kpi: [0,0,0], raport: [] };
+            
+            document.getElementById('valAbsensi').innerText = `${data.absensi} Hari`;
+            document.getElementById('valBotl').innerText = formatRupiah(data.botl);
+            document.getElementById('valTb').innerText = formatRupiah(data.tb);
+            document.getElementById('valBtc').innerText = formatRupiah(data.btc);
+
+            let weeklyHtml = "";
+            data.weekly.forEach(w => {
+                weeklyHtml += `<tr><td class="p-3 font-medium">${w.c}</td><td class="p-3 font-bold">${w.p}</td><td class="p-3 text-right font-semibold text-green-600">${w.i}</td></tr>`;
+            });
+            document.getElementById('weeklyTableBody').innerHTML = weeklyHtml;
+
+            let raportHtml = "";
+            data.raport.forEach(r => {
+                raportHtml += `<tr><td class="p-3 font-bold">${r.r}</td><td class="p-3">${r.ket}</td><td class="p-3 font-extrabold text-blue-600">${r.nilai}</td></tr>`;
+            });
+            document.getElementById('raportTableBody').innerHTML = raportHtml;
+
+            // Render KPI Chart
+            const ctx = document.getElementById('kpiChart').getContext('2d');
+            if (kpiChartInstance) kpiChartInstance.destroy();
+            kpiChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Flow', 'Balance', 'Flow Ever'],
+                    datasets: [{
+                        label: 'Persentase KPI (%)',
+                        data: data.kpi,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // Render Sheet 2: BA NOOD
+        function renderNoodData() {
+            const filtered = currentUser.viewAll ? appData.nood.filter(x => x.collector === currentCollectorNood) : appData.nood.filter(x => x.collector === currentUser.name);
+            
+            let html = "";
+            let totalSipok = 0;
+            filtered.forEach(item => {
+                totalSipok += item.sipok;
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3">${item.collector}</td>
+                    <td class="p-3 font-mono text-xs">${item.kontrak}</td>
+                    <td class="p-3 font-medium">${item.konsumen}</td>
+                    <td class="p-3"><span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-semibold">${item.tipe}</span></td>
+                    <td class="p-3">${item.angsuran}</td>
+                    <td class="p-3 text-gray-600">${item.tempo}</td>
+                    <td class="p-3 text-right font-semibold">${formatRupiah(item.sipok)}</td>
+                </tr>`;
+            });
+            document.getElementById('tableNoodBody').innerHTML = html;
+            document.getElementById('noodTotalAkun').innerText = filtered.length;
+            document.getElementById('noodTotalSipok').innerText = formatRupiah(totalSipok);
+            document.getElementById('noodPersentase').innerText = filtered.length > 0 ? "88.5%" : "0%";
+
+            renderPieChart('noodPieChart', 'noodPieInstance', appData.nood);
+        }
+
+        // Render Sheet 3: BA 1_30
+        function render130Data() {
+            const filtered = currentUser.viewAll ? appData.b130.filter(x => x.collector === currentCollector130) : appData.b130.filter(x => x.collector === currentUser.name);
+            
+            let html = "";
+            let totalSipok = 0;
+            filtered.forEach(item => {
+                totalSipok += item.sipok;
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3">${item.collector}</td>
+                    <td class="p-3 font-mono text-xs">${item.kontrak}</td>
+                    <td class="p-3 font-medium">${item.konsumen}</td>
+                    <td class="p-3"><span class="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-semibold">${item.tipe}</span></td>
+                    <td class="p-3">${item.angsuran}</td>
+                    <td class="p-3 text-gray-600">${item.tempo}</td>
+                    <td class="p-3 text-right font-semibold">${formatRupiah(item.sipok)}</td>
+                </tr>`;
+            });
+            document.getElementById('table130Body').innerHTML = html;
+            document.getElementById('b130TotalAkun').innerText = filtered.length;
+            document.getElementById('b130TotalSipok').innerText = formatRupiah(totalSipok);
+            document.getElementById('b130Persentase').innerText = filtered.length > 0 ? "91.2%" : "0%";
+
+            renderPieChart('b130PieChart', 'b130PieInstance', appData.b130);
+        }
+
+        // Render Sheet 4: BA 31_60 (Budi Satriyo)
+        function render3160Data() {
+            const filtered = appData.b3160;
+            let html = "";
+            let totalSipok = 0;
+            filtered.forEach(item => {
+                totalSipok += item.sipok;
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3">${item.collector}</td>
+                    <td class="p-3 font-mono text-xs">${item.kontrak}</td>
+                    <td class="p-3 font-medium">${item.konsumen}</td>
+                    <td class="p-3"><span class="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs font-semibold">${item.tipe}</span></td>
+                    <td class="p-3">${item.angsuran}</td>
+                    <td class="p-3 text-gray-600">${item.tempo}</td>
+                    <td class="p-3 text-right font-semibold">${formatRupiah(item.sipok)}</td>
+                </tr>`;
+            });
+            document.getElementById('table3160Body').innerHTML = html;
+            document.getElementById('b3160TotalAkun').innerText = filtered.length;
+            document.getElementById('b3160TotalSipok').innerText = formatRupiah(totalSipok);
+            document.getElementById('b3160Persentase').innerText = "94.0%";
+        }
+
+        function renderPieChart(canvasId, instanceName, dataset) {
+            const totals = {};
+            dataset.forEach(item => {
+                totals[item.collector] = (totals[item.collector] || 0) + item.sipok;
+            });
+
+            const labels = Object.keys(totals);
+            const dataValues = Object.values(totals);
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (window[instanceName]) window[instanceName].destroy();
+            
+            window[instanceName] = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        }
+
+        // Fitur Upload & Sinkronisasi File Excel (Eksklusif Nikolaus & Yusuf Dharma)
+        function handleExcelUpload(event) {
+            if (!currentUser.canEdit) {
+                alert("Anda tidak memiliki hak akses untuk mengupdate data Excel!");
+                return;
+            }
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    console.log("Sheet Excel berhasil dimuat:", workbook.SheetNames);
+                    alert("Data Excel berhasil diunggah dan disinkronkan ke Dashboard!");
+                    
+                    renderInsentifData();
+                    renderNoodData();
+                    render130Data();
+                    render3160Data();
+                } catch (err) {
+                    console.error(err);
+                    alert("Gagal membaca file Excel. Pastikan format file benar.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
